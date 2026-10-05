@@ -1,0 +1,40 @@
+#version 450
+
+layout(local_size_x = 128) in;
+
+layout(set = 0, binding = 0, std140) uniform Params
+{
+    uvec4 uParams;
+};
+
+layout(set = 2, binding = 0, std430) readonly buffer Input
+{
+    float uInput[];
+};
+
+layout(set = 2, binding = 1, std430) writeonly buffer Result
+{
+    float uResult[];
+};
+
+shared float sharedSum[128];
+
+void main()
+{
+    uint id = gl_GlobalInvocationID.x;
+    uint local = gl_LocalInvocationIndex;
+
+    sharedSum[local] = id < uParams.x ? uInput[id] : 0.0;
+    barrier();
+
+    for (uint stride = 64u; stride > 0u; stride >>= 1u)
+    {
+        if (local < stride) sharedSum[local] += sharedSum[local + stride];
+        barrier();
+    }
+
+    if (local == 0u)
+    {
+        uResult[gl_WorkGroupID.x] = sharedSum[0];
+    }
+}

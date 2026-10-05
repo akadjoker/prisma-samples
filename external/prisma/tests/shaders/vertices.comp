@@ -1,0 +1,24 @@
+#version 450
+
+layout(local_size_x = 1) in;
+
+layout(set = 2, binding = 0, std430) buffer Vertices
+{
+    vec4 uPositions[3];
+};
+
+layout(set = 2, binding = 1, std430) buffer Arguments
+{
+    uint uArguments[4];
+};
+
+void main()
+{
+    uPositions[0] = vec4(-1.0, -1.0, 0.0, 1.0);
+    uPositions[1] = vec4(3.0, -1.0, 0.0, 1.0);
+    uPositions[2] = vec4(-1.0, 3.0, 0.0, 1.0);
+    uArguments[0] = 3u;
+    uArguments[1] = 1u;
+    uArguments[2] = 0u;
+    uArguments[3] = 0u;
+}

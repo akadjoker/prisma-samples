@@ -1,0 +1,47 @@
+#version 450
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+layout(set = 0, binding = 0, std140) uniform Params
+{
+    uvec4 uParams;
+};
+
+layout(set = 1, binding = 0) uniform sampler2D uInput;
+
+layout(set = 2, binding = 0, std430) writeonly buffer Result
+{
+    float uResult[];
+};
+
+const float kGrid = 81.0;
+const vec3 kLuminance = vec3(0.299, 0.587, 0.114);
+
+shared float sharedSum[64];
+
+void main()
+{
+    uvec2 id = gl_GlobalInvocationID.xy;
+    uint local = gl_LocalInvocationIndex;
+
+    float value = 0.0;
+    if (id.x < 81u && id.y < 81u)
+    {
+        ivec2 coord = ivec2(vec2(id) / kGrid * vec2(uParams.zw));
+        vec3 color = texelFetch(uInput, coord, 0).rgb;
+        value = log(dot(color, kLuminance) + 0.0001);
+    }
+    sharedSum[local] = value;
+    barrier();
+
+    for (uint stride = 32u; stride > 0u; stride >>= 1u)
+    {
+        if (local < stride) sharedSum[local] += sharedSum[local + stride];
+        barrier();
+    }
+
+    if (local == 0u)
+    {
+        uResult[gl_WorkGroupID.y * uParams.x + gl_WorkGroupID.x] = sharedSum[0];
+    }
+}

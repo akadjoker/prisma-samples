@@ -1,0 +1,222 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      release_version:
+        description: "Publish a release with this tag (for example v0.1.0-rc1). Leave empty for a plain CI run."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux:
+    name: Linux (X11, sanitizers)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libx11-dev libxrandr-dev libxi-dev libgl-dev xvfb libgl1-mesa-dri libglx-mesa0
+
+      - name: Configure and build with sanitizers
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DPLATFORM_SANITIZE=ON -DCMAKE_C_FLAGS="-Wall -Wextra"
+          cmake --build build -j
+
+      - name: Test (Xvfb with GLX)
+        run: xvfb-run -a -s "-screen 0 1280x1024x24 +extension GLX" ctest --test-dir build --output-on-failure
+
+      - name: Headless build (fake backend) and test
+        run: |
+          cmake -S . -B build-fake -DPLATFORM_USE_FAKE=ON -DPLATFORM_BUILD_EXAMPLES=OFF -DPLATFORM_SANITIZE=ON -DCMAKE_C_FLAGS="-Wall -Wextra -Wpedantic"
+          cmake --build build-fake -j
+          ctest --test-dir build-fake --output-on-failure
+
+      - name: Release build and package
+        run: |
+          cmake -S . -B build-release -DCMAKE_BUILD_TYPE=Release -DPLATFORM_BUILD_TESTS=OFF
+          cmake --build build-release -j
+          cmake --install build-release --prefix stage
+          mkdir -p stage/examples
+          cp build-release/examples/hello_x11 build-release/examples/raytrace build-release/examples/uitest \
+             build-release/examples/mwidgets build-release/examples/ddemo build-release/examples/galaxy \
+             build-release/examples/clipboard_demo build-release/examples/events_demo stage/examples/
+          cp README.md stage/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zen_platform-linux-x64
+          path: stage
+
+  windows-msvc:
+    name: Windows (MSVC, static runtime)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure and build
+        run: |
+          cmake -S . -B build -A x64
+          cmake --build build --config Release
+
+      - name: Test
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - name: Check the executables depend on no runtime DLL
+        shell: pwsh
+        run: |
+          $bad = @()
+          foreach ($exe in Get-ChildItem build/examples/Release/*.exe, build/tests/Release/*.exe) {
+            $dlls = (& dumpbin /dependents $exe.FullName | Select-String -Pattern '^\s+\S+\.dll\s*$' | ForEach-Object { $_.Line.Trim() })
+            Write-Host "$($exe.Name): $($dlls -join ', ')"
+            if ($dlls | Where-Object { $_ -match '(?i)^(vcruntime|msvcp|msvcr|ucrtbase|api-ms-win-crt)' }) { $bad += $exe.Name }
+          }
+          if ($bad.Count -gt 0) { Write-Error "runtime DLL dependency in: $($bad -join ', ')"; exit 1 }
+          Write-Host "no runtime DLL dependency"
+
+      - name: Package
+        shell: pwsh
+        run: |
+          cmake --install build --config Release --prefix stage
+          New-Item -ItemType Directory -Force stage/examples | Out-Null
+          Copy-Item build/examples/Release/*.exe stage/examples/
+          Copy-Item README.md stage/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zen_platform-windows-x64
+          path: stage
+
+  windows-mingw:
+    name: Windows (MinGW cross build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install MinGW
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-x86-64
+
+      - name: Configure and build
+        run: |
+          cat > mingw.cmake <<'TOOLCHAIN'
+          set(CMAKE_SYSTEM_NAME Windows)
+          set(CMAKE_C_COMPILER x86_64-w64-mingw32-gcc)
+          set(CMAKE_RC_COMPILER x86_64-w64-mingw32-windres)
+          set(CMAKE_FIND_ROOT_PATH /usr/x86_64-w64-mingw32)
+          set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+          set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+          set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+          TOOLCHAIN
+          cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=mingw.cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS="-Wall -Wextra"
+          cmake --build build -j
+
+      - name: Check the executables only import Windows system DLLs
+        run: |
+          allowed='^(KERNEL32|USER32|GDI32|OPENGL32|SHELL32|msvcrt)\.dll$'
+          status=0
+          for exe in build/examples/*.exe build/tests/*.exe; do
+            for dll in $(x86_64-w64-mingw32-objdump -p "$exe" | awk '/DLL Name/ {print $3}' | sort -u); do
+              if ! echo "$dll" | grep -Eiq "$allowed"; then
+                echo "$exe imports $dll"
+                status=1
+              fi
+            done
+          done
+          exit $status
+
+  web:
+    name: Web (Emscripten)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: mymindstorm/setup-emsdk@v14
+
+      - name: Configure and build
+        run: |
+          emcmake cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DPLATFORM_BUILD_TESTS=OFF
+          cmake --build build -j
+
+      - name: Package
+        run: |
+          mkdir -p stage
+          cp build/examples/hello_web.* stage/
+          cp README.md stage/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zen_platform-web
+          path: stage
+
+  android:
+    name: Android (NDK)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure and build
+        run: |
+          cmake -S . -B build \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK_LATEST_HOME/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-24 \
+            -DCMAKE_BUILD_TYPE=Release -DPLATFORM_BUILD_TESTS=OFF
+          cmake --build build -j
+
+      - name: Package
+        run: |
+          mkdir -p stage
+          cmake --install build --prefix stage
+          cp build/examples/libhello_android.so stage/
+          cp README.md stage/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zen_platform-android-arm64
+          path: stage
+
+  release:
+    name: Release
+    if: startsWith(github.ref, 'refs/tags/v') || inputs.release_version != ''
+    needs: [linux, windows-msvc, windows-mingw, web, android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ inputs.release_version || github.ref_name }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create archives
+        run: |
+          mkdir -p dist
+          for dir in artifacts/*; do
+            name="$(basename "$dir")-${VERSION}"
+            (cd "$dir" && zip -qr "../../dist/${name}.zip" .)
+          done
+          ls -la dist
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.VERSION }}
+          target_commitish: ${{ github.sha }}
+          files: dist/*.zip
+          generate_release_notes: true
+          prerelease: ${{ contains(env.VERSION, '-') }}

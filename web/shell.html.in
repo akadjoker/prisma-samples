@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>@DEMO_TITLE@ | prisma samples</title>
+<style>
+:root { color-scheme: dark; --bg: #07070b; --panel: #0d0d14; --text: #f4f4f4; --muted: #b4b4c0; --accent: #ff5fa2; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 15px/1.4 system-ui, sans-serif; }
+header { display: flex; flex-wrap: wrap; gap: 8px 20px; align-items: center; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid #4a4a5c; }
+header strong { color: var(--accent); }
+header a { color: var(--muted); text-decoration: none; }
+header a:hover { color: var(--text); }
+header .grow { flex: 1; }
+main { position: relative; height: calc(100% - 41px); }
+canvas { display: block; width: 100%; height: 100%; outline: none; background: #000; }
+#status { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--muted); pointer-events: none; padding: 16px; }
+#status.done { display: none; }
+</style>
+</head>
+<body>
+<header>
+<strong>@DEMO_TITLE@</strong>
+<span class="grow"></span>
+<a href="../">all demos</a>
+<a href="https://github.com/akadjoker/prisma-samples/tree/main/@DEMO_FOLDER@" rel="noopener">source on GitHub</a>
+</header>
+<main>
+<canvas id="canvas" tabindex="-1" oncontextmenu="event.preventDefault()"></canvas>
+<div id="status">Loading...</div>
+</main>
+<script>
+var status = document.getElementById('status');
+var Module = {
+    canvas: document.getElementById('canvas'),
+    print: function (text) { console.log(text); },
+    printErr: function (text) { console.log(text); },
+    setStatus: function (text) {
+        if (text) { status.textContent = text; status.className = ''; }
+        else { status.className = 'done'; }
+    },
+    monitorRunDependencies: function () {}
+};
+window.addEventListener('error', function () { status.textContent = 'This demo needs WebGL 2.'; status.className = ''; });
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>

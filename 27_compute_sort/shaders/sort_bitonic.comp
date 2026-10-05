@@ -1,0 +1,38 @@
+#version 450
+
+layout(local_size_x = 256) in;
+
+layout(set = 2, binding = 0, std430) buffer Data
+{
+    uint uData[];
+};
+
+layout(set = 0, binding = 0, std140) uniform Params
+{
+    uvec4 uParams;
+};
+
+shared uint sharedData[256];
+
+void main()
+{
+    uint level = uParams.x;
+    uint levelMask = uParams.y;
+    uint local = gl_LocalInvocationIndex;
+    uint id = gl_GlobalInvocationID.x;
+
+    sharedData[local] = uData[id];
+    barrier();
+
+    for (uint j = level >> 1u; j > 0u; j >>= 1u)
+    {
+        bool ascending = (levelMask & id) != 0u;
+        bool ordered = sharedData[local & ~j] <= sharedData[local | j];
+        uint result = (ordered == ascending) ? sharedData[local ^ j] : sharedData[local];
+        barrier();
+        sharedData[local] = result;
+        barrier();
+    }
+
+    uData[id] = sharedData[local];
+}

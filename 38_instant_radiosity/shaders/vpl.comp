@@ -1,0 +1,73 @@
+#version 450
+
+layout(local_size_x = 64) in;
+
+layout(set = 0, binding = 0, std140) uniform Params
+{
+    // x: the number of lights, y: the tangent of the half angle of the map, z: the intensity of
+    // the light, w: the angle scale of the cone
+    vec4 uParams;
+    // the colour of the light and the angle offset of the cone
+    vec4 uColor;
+};
+
+layout(set = 1, binding = 0) uniform sampler2D uPosition;
+layout(set = 1, binding = 1) uniform sampler2D uNormal;
+layout(set = 1, binding = 2) uniform sampler2D uAlbedo;
+
+struct Vpl
+{
+    vec4 position;
+    vec4 normal;
+    vec4 flux;
+};
+
+layout(set = 2, binding = 0, std430) writeonly buffer Vpls
+{
+    Vpl uVpls[];
+};
+
+float radicalInverse(uint bits)
+{
+    bits = (bits << 16u) | (bits >> 16u);
+    bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
+    bits = ((bits & 0x33333333u) << 2u) | ((bits & 0xCCCCCCCCu) >> 2u);
+    bits = ((bits & 0x0F0F0F0Fu) << 4u) | ((bits & 0xF0F0F0F0u) >> 4u);
+    bits = ((bits & 0x00FF00FFu) << 8u) | ((bits & 0xFF00FF00u) >> 8u);
+    return float(bits) * 2.3283064365386963e-10;
+}
+
+void main()
+{
+    uint index = gl_GlobalInvocationID.x;
+    uint count = uint(uParams.x);
+    if (index >= count)
+        return;
+
+    // a Hammersley point of the map: every one stands for the same area of the image plane
+    vec2 uv = vec2((float(index) + 0.5) / float(count), radicalInverse(index));
+    vec2 slope = (uv * 2.0 - 1.0) * uParams.y;
+    float r2 = 1.0 + dot(slope, slope);
+    float cosine = inversesqrt(r2);
+    float cone = clamp(cosine * uParams.w + uColor.w, 0.0, 1.0);
+    cone *= cone;
+
+    Vpl vpl;
+    vpl.position = vec4(0.0);
+    vpl.normal = vec4(0.0);
+    vpl.flux = vec4(0.0);
+    vec4 position = textureLod(uPosition, uv, 0.0);
+    if (position.w > 0.5 && cone > 0.0)
+    {
+        // the power the light sends through the solid angle of the sample, which the surface
+        // reflects: intensity * solid angle * albedo; the solid angle of a piece of the image
+        // plane at distance 1 is its area divided by r2^1.5
+        float area = 4.0 * uParams.y * uParams.y;
+        float solidAngle = area / (float(count) * r2 * sqrt(r2));
+        vec3 albedo = textureLod(uAlbedo, uv, 0.0).rgb;
+        vpl.position = vec4(position.xyz, 1.0);
+        vpl.normal = vec4(normalize(textureLod(uNormal, uv, 0.0).xyz), 0.0);
+        vpl.flux = vec4(albedo * uColor.rgb * (uParams.z * cone * solidAngle), 0.0);
+    }
+    uVpls[index] = vpl;
+}

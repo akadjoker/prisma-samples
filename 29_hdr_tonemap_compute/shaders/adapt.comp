@@ -1,0 +1,27 @@
+#version 450
+
+layout(local_size_x = 1) in;
+
+layout(set = 0, binding = 0, std140) uniform Params
+{
+    vec4 uParams;
+};
+
+layout(set = 2, binding = 0, std430) readonly buffer Sum
+{
+    float uSum[];
+};
+
+layout(set = 2, binding = 1, std430) buffer Luminance
+{
+    float uLuminance[];
+};
+
+void main()
+{
+    float current = exp(uSum[0] * uParams.y);
+    float adapted = uLuminance[0];
+    adapted += (current - adapted) * (1.0 - pow(0.98, 30.0 * uParams.x));
+    uLuminance[0] = adapted;
+    uLuminance[1] = current;
+}

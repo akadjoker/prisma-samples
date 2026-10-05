@@ -1,0 +1,9 @@
+[submodule "external/prisma"]
+	path = external/prisma
+	url = https://github.com/akadjoker/prisma
+[submodule "external/zen_plataform"]
+	path = external/zen_plataform
+	url = https://github.com/akadjoker/zen_plataform
+[submodule "external/math"]
+	path = external/math
+	url = https://github.com/akadjoker/math

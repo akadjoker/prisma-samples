@@ -1,0 +1,45 @@
+#version 450
+
+layout(local_size_x = 64) in;
+
+struct Particle
+{
+    vec4 position;
+    vec4 velocity;
+};
+
+layout(set = 2, binding = 0, std430) buffer Particles
+{
+    Particle uParticles[];
+};
+
+layout(set = 0, binding = 1, std140) uniform Params
+{
+    vec4 uParams;
+};
+
+void main()
+{
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= uint(uParams.y)) return;
+
+    float dt = uParams.x;
+    vec3 position = uParticles[id].position.xyz;
+    vec3 velocity = uParticles[id].velocity.xyz;
+
+    float falloff = inversesqrt(dot(position, position) + 0.04);
+    vec3 gravity = -position * (1.5 * falloff * falloff * falloff);
+
+    vec3 tangent = cross(vec3(0.0, 1.0, 0.0), position);
+    tangent /= max(length(tangent), 0.0001);
+    float planar = length(position.xz);
+    float circular = 1.2247449 * planar / pow(planar * planar + 0.04, 0.75);
+    vec3 swirl = tangent * ((circular - dot(velocity, tangent)) * 0.8);
+
+    velocity += (gravity + swirl) * dt;
+    velocity *= 1.0 - 0.02 * dt;
+    position += velocity * dt;
+
+    uParticles[id].position.xyz = position;
+    uParticles[id].velocity.xyz = velocity;
+}

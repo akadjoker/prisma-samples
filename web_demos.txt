@@ -1,0 +1,11 @@
+# name|folder|title|text   (the demos that run in the browser: WebGL 2 has no compute, tessellation or geometry shaders)
+clear|01_clear|Clear|A window cleared to one colour.
+triangle|02_triangle|Triangle|One coloured triangle.
+cube|03_cube|Cube|A textured cube.
+two_cubes|04_two_cubes|Two cubes|Depth testing and several draws sharing one uniform buffer.
+lighting|05_lighting|Lighting|Two directional lights.
+blend_stencil|09_blend_stencil|Blend and stencil|Blend modes and stencil masks.
+instancing|10_instancing|Instancing|4000 cubes in one draw call.
+offscreen_msaa|11_offscreen_msaa|Offscreen MSAA|A multisampled offscreen target with resolve.
+shadow_volume|28_shadow_volume|Shadow volumes|Stencil shadow volumes: the silhouette edges are extruded away from an orbiting light in the vertex shader and counted with a two-sided depth-fail stencil.
+area_lights|37_area_lights|Area lights|Rectangle lights with linearly transformed cosines on a PBR floor and a skinned dwarf.

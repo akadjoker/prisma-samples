@@ -1,0 +1,36 @@
+#version 450
+
+layout(local_size_x = 128) in;
+
+layout(set = 0, binding = 0, std140) uniform Params
+{
+    vec4 uWeights[15];
+    ivec4 uSize;
+};
+
+layout(set = 1, binding = 0) uniform sampler2D uInput;
+
+layout(set = 3, binding = 0, rgba16f) uniform writeonly image2D uOutput;
+
+const int kHalf = 7;
+const int kThreads = 128;
+
+shared vec4 sharedColor[128];
+
+void main()
+{
+    int local = int(gl_LocalInvocationIndex);
+    ivec2 group = ivec2(gl_WorkGroupID.xy);
+
+    int y = local - kHalf + (kThreads - kHalf * 2) * group.y;
+    sharedColor[local] = texelFetch(uInput, ivec2(group.x, clamp(y, 0, uSize.w - 1)), 0);
+    barrier();
+
+    if (local >= kHalf && local < kThreads - kHalf && y < uSize.y)
+    {
+        vec4 sum = vec4(0.0);
+        for (int i = -kHalf; i <= kHalf; ++i)
+            sum += sharedColor[local + i] * uWeights[i + kHalf];
+        imageStore(uOutput, ivec2(group.x, y), vec4(sum.rgb, 1.0));
+    }
+}

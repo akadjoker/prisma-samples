@@ -1,0 +1,63 @@
+#version 450
+
+layout(local_size_x = 128) in;
+
+struct Body
+{
+    vec4 position;
+    vec4 velocity;
+};
+
+layout(set = 2, binding = 0, std430) readonly buffer Source
+{
+    Body uSource[];
+};
+
+layout(set = 2, binding = 1, std430) writeonly buffer Target
+{
+    Body uTarget[];
+};
+
+layout(set = 0, binding = 0, std140) uniform Params
+{
+    vec4 uParams;
+};
+
+shared vec4 tile[128];
+
+void main()
+{
+    uint count = uint(uParams.y);
+    uint id = gl_GlobalInvocationID.x;
+    uint local = gl_LocalInvocationID.x;
+    bool alive = id < count;
+
+    Body body = uSource[alive ? id : 0u];
+    vec3 position = body.position.xyz;
+    vec3 acceleration = vec3(0.0);
+    float softening = uParams.z;
+
+    for (uint base = 0u; base < count; base += 128u)
+    {
+        uint index = base + local;
+        tile[local] = index < count ? uSource[index].position : vec4(0.0);
+        barrier();
+
+        for (uint j = 0u; j < 128u; ++j)
+        {
+            vec4 other = tile[j];
+            vec3 delta = other.xyz - position;
+            float distanceSquared = dot(delta, delta) + softening;
+            float inverse = inversesqrt(distanceSquared);
+            acceleration += delta * (other.w * inverse * inverse * inverse);
+        }
+        barrier();
+    }
+
+    if (!alive) return;
+
+    float dt = uParams.x;
+    vec3 velocity = body.velocity.xyz + acceleration * (uParams.w * dt);
+    uTarget[id].position = vec4(position + velocity * dt, body.position.w);
+    uTarget[id].velocity = vec4(velocity, 0.0);
+}

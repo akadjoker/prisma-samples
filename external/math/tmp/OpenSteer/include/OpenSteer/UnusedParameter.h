@@ -1,0 +1,7 @@
+
+#ifndef OPENSTEER_UNUSEDPARAMETER_H
+#define OPENSTEER_UNUSEDPARAMETER_H
+
+#define OPENSTEER_UNUSED_PARAMETER(expr) (void)expr
+
+#endif 

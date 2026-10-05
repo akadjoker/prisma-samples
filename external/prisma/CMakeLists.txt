@@ -1,0 +1,30 @@
+cmake_minimum_required(VERSION 3.21)
+project(prisma VERSION 0.1.0 LANGUAGES C CXX)
+
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
+endif()
+
+option(PRISMA_OPENGL "Build the OpenGL backend" ON)
+option(PRISMA_GLES "Use OpenGL ES 3 instead of OpenGL 4.6 in the OpenGL backend" OFF)
+find_package(Vulkan QUIET)
+option(PRISMA_VULKAN "Build the Vulkan backend" ${Vulkan_FOUND})
+option(PRISMA_BUILD_TESTS "Build the prisma tests" ON)
+option(PRISMA_WINDOW_TESTS "Also run the GPU tests in a real window" OFF)
+
+add_library(ct INTERFACE)
+target_include_directories(ct INTERFACE external/containers/include)
+
+add_subdirectory(libprisma)
+
+if(PRISMA_BUILD_TESTS)
+  include(cmake/PrismaShaders.cmake)
+  set(PLATFORM_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+  set(PLATFORM_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+  add_subdirectory(external/zen_plataform EXCLUDE_FROM_ALL)
+  enable_testing()
+  add_subdirectory(tests)
+endif()

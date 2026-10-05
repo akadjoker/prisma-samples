@@ -1,0 +1,79 @@
+#version 450
+
+layout(local_size_x = 128) in;
+
+struct Particle
+{
+    vec2 position;
+    vec2 velocity;
+    vec2 density;
+    vec2 acceleration;
+};
+
+layout(set = 2, binding = 0, std430) buffer Particles
+{
+    Particle uParticles[];
+};
+
+layout(set = 0, binding = 1, std140) uniform Params
+{
+    vec4 uSim0;
+    vec4 uSim1;
+    vec4 uSim2;
+    vec4 uSim3;
+};
+
+void main()
+{
+    uint id = gl_GlobalInvocationID.x;
+    if (id >= uint(uSim1.w)) return;
+
+    float dt = uSim0.x;
+    vec2 box = uSim2.xy;
+    float margin = 0.04;
+
+    vec2 velocity = uParticles[id].velocity;
+    velocity += (uParticles[id].acceleration + vec2(0.0, -uSim1.z)) * dt;
+    float speed = length(velocity);
+    if (speed > 14.0) velocity *= 14.0 / speed;
+    vec2 position = uParticles[id].position + velocity * dt;
+
+    vec2 stirrer = uSim2.zw;
+    float radius = uSim3.x;
+    vec2 away = position - stirrer;
+    float awayLength = length(away);
+    if (awayLength < radius)
+    {
+        vec2 normal = awayLength > 1.0e-5 ? away / awayLength : vec2(0.0, 1.0);
+        position = stirrer + normal * radius;
+        vec2 relative = velocity - uSim3.yz;
+        float inward = dot(relative, normal);
+        if (inward < 0.0) relative -= normal * inward * 1.2;
+        velocity = uSim3.yz + relative;
+    }
+
+    float damping = uSim3.w;
+    if (position.x < margin)
+    {
+        position.x = margin;
+        velocity.x = abs(velocity.x) * damping;
+    }
+    if (position.x > box.x - margin)
+    {
+        position.x = box.x - margin;
+        velocity.x = -abs(velocity.x) * damping;
+    }
+    if (position.y < margin)
+    {
+        position.y = margin;
+        velocity.y = abs(velocity.y) * damping;
+    }
+    if (position.y > box.y - margin)
+    {
+        position.y = box.y - margin;
+        velocity.y = -abs(velocity.y) * damping;
+    }
+
+    uParticles[id].position = position;
+    uParticles[id].velocity = velocity;
+}

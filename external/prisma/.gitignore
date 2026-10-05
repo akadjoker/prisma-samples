@@ -1,0 +1,6 @@
+build/
+build-*/
+tmp/
+docs/
+CLAUDE.md
+models/

@@ -1,0 +1,54 @@
+#version 450
+
+layout(local_size_x = 128) in;
+
+layout(set = 0, binding = 0, std140) uniform Params
+{
+    vec4 uWeights[15];
+    ivec4 uSize;
+};
+
+layout(set = 1, binding = 0) uniform sampler2D uInput;
+
+layout(set = 2, binding = 0, std430) readonly buffer Luminance
+{
+    float uLuminance[];
+};
+
+layout(set = 3, binding = 0, rgba16f) uniform writeonly image2D uOutput;
+
+const float kMiddleGray = 0.18;
+const float kThreshold = 1.5;
+const float kOffset = 3.0;
+const int kHalf = 7;
+const int kThreads = 128;
+
+shared vec4 sharedColor[128];
+
+void main()
+{
+    int local = int(gl_LocalInvocationIndex);
+    ivec2 group = ivec2(gl_WorkGroupID.xy);
+
+    ivec2 coord = ivec2(local - kHalf + (kThreads - kHalf * 2) * group.x, group.y);
+    coord = coord * 8 + ivec2(4, 3);
+    coord = clamp(coord, ivec2(0), uSize.zw - 1);
+    vec4 color = texelFetch(uInput, coord, 0);
+
+    float luminance = uLuminance[0];
+    color *= kMiddleGray / (luminance + 0.001);
+    color = max(color - kThreshold, vec4(0.0));
+    color /= kOffset + color;
+
+    sharedColor[local] = color;
+    barrier();
+
+    int x = local - kHalf + (kThreads - kHalf * 2) * group.x;
+    if (local >= kHalf && local < kThreads - kHalf && x < uSize.x)
+    {
+        vec4 sum = vec4(0.0);
+        for (int i = -kHalf; i <= kHalf; ++i)
+            sum += sharedColor[local + i] * uWeights[i + kHalf];
+        imageStore(uOutput, ivec2(x, group.y), vec4(sum.rgb, 1.0));
+    }
+}

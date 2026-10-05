@@ -1,0 +1,23 @@
+# build trees
+build*/
+cmake-build-*/
+
+# reference sources: study only, never vendored into the build
+reference/
+
+# scratch working notes
+notes/
+
+# objects and binaries
+*.o
+*.a
+*.so
+*.dll
+*.lib
+*.exe
+
+# editor / tooling
+.vscode/
+.idea/
+compile_commands.json
+.cache/

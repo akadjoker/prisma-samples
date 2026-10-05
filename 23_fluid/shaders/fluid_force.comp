@@ -1,0 +1,105 @@
+#version 450
+
+layout(local_size_x = 128) in;
+
+struct Particle
+{
+    vec2 position;
+    vec2 velocity;
+    vec2 density;
+    vec2 acceleration;
+};
+
+layout(set = 2, binding = 0, std430) buffer Particles
+{
+    Particle uParticles[];
+};
+
+layout(set = 0, binding = 1, std140) uniform Params
+{
+    vec4 uSim0;
+    vec4 uSim1;
+    vec4 uSim2;
+    vec4 uSim3;
+};
+
+const float kPi = 3.14159265;
+
+shared vec2 sPosition[128];
+shared vec2 sVelocity[128];
+shared vec2 sDensity[128];
+
+void main()
+{
+    uint id = gl_GlobalInvocationID.x;
+    uint local = gl_LocalInvocationID.x;
+    uint count = uint(uSim1.w);
+    float h = uSim0.y;
+    float h2 = h * h;
+    float restDensity = uSim0.z;
+    float stiffness = uSim0.w;
+    float nearStiffness = uSim1.x;
+    float viscosity = uSim1.y;
+
+    float slopeScale = 12.0 / (kPi * h2 * h2);
+    float nearSlopeScale = 30.0 / (kPi * h2 * h2 * h);
+    float viscosityScale = 4.0 / (kPi * h2 * h2 * h2 * h2);
+
+    vec2 position = vec2(0.0);
+    vec2 velocity = vec2(0.0);
+    vec2 density = vec2(1.0);
+    if (id < count)
+    {
+        position = uParticles[id].position;
+        velocity = uParticles[id].velocity;
+        density = uParticles[id].density;
+    }
+    float pressure = (density.x - restDensity) * stiffness;
+    float nearPressure = density.y * nearStiffness;
+
+    vec2 pressureForce = vec2(0.0);
+    vec2 viscousForce = vec2(0.0);
+
+    for (uint base = 0u; base < count; base += 128u)
+    {
+        uint other = base + local;
+        if (other < count)
+        {
+            sPosition[local] = uParticles[other].position;
+            sVelocity[local] = uParticles[other].velocity;
+            sDensity[local] = uParticles[other].density;
+        }
+        else
+        {
+            sPosition[local] = vec2(1.0e9);
+            sVelocity[local] = vec2(0.0);
+            sDensity[local] = vec2(1.0);
+        }
+        barrier();
+        for (uint k = 0u; k < 128u; ++k)
+        {
+            vec2 offset = sPosition[k] - position;
+            float d2 = dot(offset, offset);
+            if (d2 < h2 && d2 > 1.0e-10)
+            {
+                float dist = sqrt(d2);
+                vec2 dir = offset / dist;
+                float v = h - dist;
+                vec2 otherDensity = sDensity[k];
+                float otherPressure = (otherDensity.x - restDensity) * stiffness;
+                float otherNearPressure = otherDensity.y * nearStiffness;
+                pressureForce += dir * (-v * slopeScale * 0.5 * (pressure + otherPressure) / otherDensity.x);
+                pressureForce += dir * (-v * v * nearSlopeScale * 0.5 * (nearPressure + otherNearPressure) /
+                                        otherDensity.y);
+                float w = h2 - d2;
+                viscousForce += (sVelocity[k] - velocity) * (w * w * w * viscosityScale);
+            }
+        }
+        barrier();
+    }
+
+    if (id < count)
+    {
+        uParticles[id].acceleration = pressureForce / density.x + viscousForce * viscosity;
+    }
+}

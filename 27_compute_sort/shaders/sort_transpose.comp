@@ -1,0 +1,32 @@
+#version 450
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 2, binding = 0, std430) readonly buffer Input
+{
+    uint uInput[];
+};
+
+layout(set = 2, binding = 1, std430) writeonly buffer Data
+{
+    uint uData[];
+};
+
+layout(set = 0, binding = 0, std140) uniform Params
+{
+    uvec4 uParams;
+};
+
+shared uint sharedData[256];
+
+void main()
+{
+    uvec3 id = gl_GlobalInvocationID;
+    uvec3 local = gl_LocalInvocationID;
+
+    sharedData[gl_LocalInvocationIndex] = uInput[id.y * uParams.z + id.x];
+    barrier();
+
+    uvec2 xy = id.yx - local.yx + local.xy;
+    uData[xy.y * uParams.w + xy.x] = sharedData[local.x * 16u + local.y];
+}

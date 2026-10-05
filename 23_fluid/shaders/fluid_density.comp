@@ -1,0 +1,66 @@
+#version 450
+
+layout(local_size_x = 128) in;
+
+struct Particle
+{
+    vec2 position;
+    vec2 velocity;
+    vec2 density;
+    vec2 acceleration;
+};
+
+layout(set = 2, binding = 0, std430) buffer Particles
+{
+    Particle uParticles[];
+};
+
+layout(set = 0, binding = 1, std140) uniform Params
+{
+    vec4 uSim0;
+    vec4 uSim1;
+    vec4 uSim2;
+    vec4 uSim3;
+};
+
+const float kPi = 3.14159265;
+
+shared vec2 sPosition[128];
+
+void main()
+{
+    uint id = gl_GlobalInvocationID.x;
+    uint local = gl_LocalInvocationID.x;
+    uint count = uint(uSim1.w);
+    float h = uSim0.y;
+    float h2 = h * h;
+
+    vec2 position = id < count ? uParticles[id].position : vec2(0.0);
+    float density = 0.0;
+    float nearDensity = 0.0;
+
+    for (uint base = 0u; base < count; base += 128u)
+    {
+        uint other = base + local;
+        sPosition[local] = other < count ? uParticles[other].position : vec2(1.0e9);
+        barrier();
+        for (uint k = 0u; k < 128u; ++k)
+        {
+            vec2 offset = sPosition[k] - position;
+            float d2 = dot(offset, offset);
+            if (d2 < h2)
+            {
+                float v = h - sqrt(d2);
+                density += v * v;
+                nearDensity += v * v * v;
+            }
+        }
+        barrier();
+    }
+
+    if (id < count)
+    {
+        uParticles[id].density =
+                vec2(density * 6.0 / (kPi * h2 * h2), nearDensity * 10.0 / (kPi * h2 * h2 * h));
+    }
+}

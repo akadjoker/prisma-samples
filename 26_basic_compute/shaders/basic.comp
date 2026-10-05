@@ -1,0 +1,31 @@
+#version 450
+
+layout(local_size_x = 64) in;
+
+struct Element
+{
+    int i;
+    float f;
+};
+
+layout(set = 2, binding = 0, std430) readonly buffer Buffer0
+{
+    Element uBuffer0[];
+};
+
+layout(set = 2, binding = 1, std430) readonly buffer Buffer1
+{
+    Element uBuffer1[];
+};
+
+layout(set = 2, binding = 2, std430) writeonly buffer BufferOut
+{
+    Element uBufferOut[];
+};
+
+void main()
+{
+    uint id = gl_GlobalInvocationID.x;
+    uBufferOut[id].i = uBuffer0[id].i + uBuffer1[id].i;
+    uBufferOut[id].f = uBuffer0[id].f + uBuffer1[id].f;
+}

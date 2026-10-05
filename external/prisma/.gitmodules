@@ -1,0 +1,13 @@
+[submodule "external/containers"]
+	path = external/containers
+	url = https://github.com/akadjoker/containers.git
+[submodule "external/math"]
+	path = external/math
+	url = https://github.com/akadjoker/math.git
+[submodule "external/zen_plataform"]
+	path = external/zen_plataform
+	url = https://github.com/akadjoker/zen_plataform.git
+ 
+[submodule "external/SPIRV-Cross"]
+	path = external/SPIRV-Cross
+	url = https://github.com/KhronosGroup/SPIRV-Cross
