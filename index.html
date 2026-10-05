@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>prisma samples, live</title>
+<meta name="description" content="Demos of the prisma renderer running in the browser on WebGL 2.">
+<style>
+:root { color-scheme: dark; --bg: #07070b; --panel: #0d0d14; --text: #f4f4f4; --muted: #b4b4c0; --line: #4a4a5c; --accent: #ff5fa2; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, sans-serif; }
+.wrap { max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px; }
+h1 { margin: 0 0 4px; font-size: 1.6rem; }
+h1 span { color: var(--accent); }
+.lead { color: var(--muted); max-width: 70ch; margin: 0 0 24px; }
+.lead a { color: var(--accent); }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.card { display: block; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; color: inherit; text-decoration: none; overflow: hidden; }
+.card:hover, .card:focus-visible { border-color: var(--accent); }
+.card img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: #000; }
+.body { padding: 12px 14px 14px; }
+.body h2 { margin: 0 0 4px; font-size: 1.05rem; }
+.body h2 span { color: var(--accent); }
+.body p { margin: 0; color: var(--muted); font-size: .92rem; }
+.note { color: var(--muted); font-size: .9rem; margin-top: 28px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1><span>&gt;</span> prisma samples, live</h1>
+<p class="lead">Demos of the <a href="https://github.com/akadjoker/prisma" rel="noopener">prisma</a> renderer running in your browser on WebGL 2. Each one is a small C++ program built with Emscripten; the source is in the <a href="https://github.com/akadjoker/prisma-samples" rel="noopener">prisma-samples</a> repository.</p>
+<div class="grid">
+<a class="card" href="clear/"><img src="thumbs/clear.jpg" alt="" loading="lazy"><div class="body"><h2><span>01</span> Clear</h2><p>A window cleared to one colour.</p></div></a>
+<a class="card" href="triangle/"><img src="thumbs/triangle.jpg" alt="" loading="lazy"><div class="body"><h2><span>02</span> Triangle</h2><p>One coloured triangle.</p></div></a>
+<a class="card" href="cube/"><img src="thumbs/cube.jpg" alt="" loading="lazy"><div class="body"><h2><span>03</span> Cube</h2><p>A textured cube.</p></div></a>
+<a class="card" href="two_cubes/"><img src="thumbs/two_cubes.jpg" alt="" loading="lazy"><div class="body"><h2><span>04</span> Two cubes</h2><p>Depth testing and several draws sharing one uniform buffer.</p></div></a>
+<a class="card" href="lighting/"><img src="thumbs/lighting.jpg" alt="" loading="lazy"><div class="body"><h2><span>05</span> Lighting</h2><p>Two directional lights.</p></div></a>
+<a class="card" href="blend_stencil/"><img src="thumbs/blend_stencil.jpg" alt="" loading="lazy"><div class="body"><h2><span>09</span> Blend and stencil</h2><p>Blend modes and stencil masks.</p></div></a>
+<a class="card" href="instancing/"><img src="thumbs/instancing.jpg" alt="" loading="lazy"><div class="body"><h2><span>10</span> Instancing</h2><p>4000 cubes in one draw call.</p></div></a>
+<a class="card" href="offscreen_msaa/"><img src="thumbs/offscreen_msaa.jpg" alt="" loading="lazy"><div class="body"><h2><span>11</span> Offscreen MSAA</h2><p>A multisampled offscreen target with resolve.</p></div></a>
+<a class="card" href="shadow_volume/"><img src="thumbs/shadow_volume.jpg" alt="" loading="lazy"><div class="body"><h2><span>28</span> Shadow volumes</h2><p>Stencil shadow volumes: the silhouette edges are extruded away from an orbiting light in the vertex shader and counted with a two-sided depth-fail stencil.</p></div></a>
+<a class="card" href="area_lights/"><img src="thumbs/area_lights.jpg" alt="" loading="lazy"><div class="body"><h2><span>37</span> Area lights</h2><p>Rectangle lights with linearly transformed cosines on a PBR floor and a skinned dwarf.</p></div></a>
+
+</div>
+<p class="note">The demos that use compute, tessellation or geometry shaders need OpenGL 4.6 or Vulkan and run from the repository, not in the browser.</p>
+</div>
+</body>
+</html>
